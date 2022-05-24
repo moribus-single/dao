@@ -1,5 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { ethers } from "hardhat"
+import config from "../../config"
 
 export async function prepareSigners(thisObject: Mocha.Context) {
     thisObject.signers = await ethers.getSigners()
@@ -14,18 +15,23 @@ export async function prepareSigners(thisObject: Mocha.Context) {
 export async function deploy(thisObject: Mocha.Context, signer: SignerWithAddress) {
     const tokenFactory = await ethers.getContractFactory("Token");
     const token = await tokenFactory.connect(signer).deploy(
-        "Money Token", 
-        "MNY"
+        config.token.name, 
+        config.token.symbol
     );
     await token.deployed();
-    thisObject.token = token;
+    await token.connect(signer).mint(
+        signer.address, 
+        ethers.utils.parseEther("1000000")
+    );
 
     const daoFactory = await ethers.getContractFactory("DAO");
     const dao = await daoFactory.deploy(
         token.address,
-        40,
-        60*60*24*3
+        config.dao.minimumQuorum,
+        config.dao.debatingDuration
     )
     await dao.deployed();
+    
+    thisObject.token = token;
     thisObject.dao = dao;
 }

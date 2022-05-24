@@ -1,58 +1,47 @@
 import { expect, use } from "chai"
 import { ethers, waffle } from "hardhat"
 import { deploy, prepareSigners } from "./utils/prepare"
+import config from "../config"
 
 use(waffle.solidity)
 
-describe("ERC20 mock contract", function () {
+describe("DAO contract", function () {
     beforeEach(async function () {
         await prepareSigners(this)
         await deploy(this, this.owner)
     })
 
     describe("Deployment", function () {
-        it("Should assign the total supply of tokens to the owner", async function () {
-            const ownerBalance = await this.token1.balanceOf(this.owner.address)
-            expect(await this.token1.totalSupply()).to.equal(ownerBalance)
+        it("Should assign parameters to the contracts", async function () {
+            expect(
+                await this.dao.asset()
+            ).eq(this.token.address);
+            expect(
+                await this.dao.minimumQuorum()
+            ).eq(config.dao.minimumQuorum.mul(await this.token.totalSupply()).div(100));
+            expect(
+                await this.dao.debatingDuration()
+            ).eq(config.dao.debatingDuration);
+            expect(
+                await this.token.name()
+            ).eq(config.token.name);
+            expect(
+                await this.token.symbol()
+            ).eq(config.token.symbol);
         })
     })
 
     describe("Transactions", function () {
-        it("Should transfer tokens between accounts", async function () {
-            const transferAmount = ethers.utils.parseUnits("100", 6)
-            await this.token1.connect(this.bob).transfer(this.alice.address, transferAmount)
-
-            const aliceBalance = await this.token1.balanceOf(this.alice.address)
-            expect(aliceBalance).to.equal(transferAmount)
+        it("", async function () {
+            
         })
 
-        it("Should fail if sender doesn’t have enough tokens", async function () {
-            const initialOwnerBalance = await this.token1.balanceOf(this.bob.address)
-            await expect(this.token1.connect(this.misha).transfer(this.bob.address, 1)).to.be.revertedWith(
-                "ERC20: transfer amount exceeds balance"
-            )
-
-            // Owner balance shouldn't have changed.
-            expect(await this.token1.balanceOf(this.bob.address)).to.equal(initialOwnerBalance)
+        it("", async function () {
+            
         })
 
-        it("Should update balances after transfers", async function () {
-            const initialOwnerBalance = await this.token1.balanceOf(this.bob.address)
-
-            const transferToMishaAmount = ethers.utils.parseUnits("100", 6)
-            await this.token1.connect(this.bob).transfer(this.misha.address, transferToMishaAmount)
-
-            const transferToTemaAmount = ethers.utils.parseUnits("100", 6)
-            await this.token1.connect(this.bob).transfer(this.tema.address, transferToTemaAmount)
-
-            const finalOwnerBalance = await this.token1.balanceOf(this.bob.address)
-            expect(finalOwnerBalance).to.equal(initialOwnerBalance.sub(transferToTemaAmount).sub(transferToMishaAmount))
-
-            const mishaBalance = await this.token1.balanceOf(this.misha.address)
-            expect(mishaBalance).to.equal(transferToMishaAmount)
-
-            const temaBalance = await this.token1.balanceOf(this.tema.address)
-            expect(temaBalance).to.equal(transferToTemaAmount)
+        it("", async function () {
+            
         })
     })
 })
