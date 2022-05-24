@@ -1,18 +1,18 @@
 import { expect, use } from "chai"
 import { ethers, waffle } from "hardhat"
-import { prepareERC20Tokens, prepareSigners } from "./utils/prepare"
+import { deploy, prepareSigners } from "./utils/prepare"
 
 use(waffle.solidity)
 
 describe("ERC20 mock contract", function () {
     beforeEach(async function () {
         await prepareSigners(this)
-        await prepareERC20Tokens(this, this.bob)
+        await deploy(this, this.owner)
     })
 
     describe("Deployment", function () {
         it("Should assign the total supply of tokens to the owner", async function () {
-            const ownerBalance = await this.token1.balanceOf(this.bob.address)
+            const ownerBalance = await this.token1.balanceOf(this.owner.address)
             expect(await this.token1.totalSupply()).to.equal(ownerBalance)
         })
     })

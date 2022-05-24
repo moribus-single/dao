@@ -55,27 +55,27 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.MNEMONIC,
             },
         },
-        ropsten: {
-            url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
-            accounts: {
-                mnemonic: process.env.MNEMONIC,
-            },
-        },
-        avalanche: {
-            url: "https://api.avax.network/ext/bc/C/rpc",
-            gasPrice: 85000000000,
-            gasMultiplier: 2,
-            accounts: {
-                mnemonic: process.env.MNEMONIC,
-            },
-        },
-        fuji: {
-            url: "https://api.avax-test.network/ext/bc/C/rpc",
-            gasMultiplier: 2,
-            accounts: {
-                mnemonic: process.env.MNEMONIC,
-            },
-        },
+        // ropsten: {
+        //     url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
+        //     accounts: {
+        //         mnemonic: process.env.MNEMONIC,
+        //     },
+        // },
+        // avalanche: {
+        //     url: "https://api.avax.network/ext/bc/C/rpc",
+        //     gasPrice: 85000000000,
+        //     gasMultiplier: 2,
+        //     accounts: {
+        //         mnemonic: process.env.MNEMONIC,
+        //     },
+        // },
+        // fuji: {
+        //     url: "https://api.avax-test.network/ext/bc/C/rpc",
+        //     gasMultiplier: 2,
+        //     accounts: {
+        //         mnemonic: process.env.MNEMONIC,
+        //     },
+        // },
     },
     namedAccounts: {
         deployer: 0,
