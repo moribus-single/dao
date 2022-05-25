@@ -29,7 +29,7 @@ interface ICommonDAO {
     struct User {
         uint128 amount;
         uint128[] proposalIds;
-        bool locked;
+        uint96 lockedTill;
     }
 
     error CannotBeFinished();

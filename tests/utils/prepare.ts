@@ -1,6 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { ethers } from "hardhat"
 import config from "../../config"
+import { DAO, Token} from "../../build/typechain"
 
 export async function prepareSigners(thisObject: Mocha.Context) {
     thisObject.signers = await ethers.getSigners()
@@ -12,9 +13,9 @@ export async function prepareSigners(thisObject: Mocha.Context) {
     thisObject.user5 = thisObject.signers[5]
 }
 
-export async function deploy(thisObject: Mocha.Context, signer: SignerWithAddress) {
+export async function prepare(thisObject: Mocha.Context, signer: SignerWithAddress): Promise<[DAO, Token]> {
     const tokenFactory = await ethers.getContractFactory("Token");
-    const token = await tokenFactory.connect(signer).deploy(
+    const token: Token = await tokenFactory.connect(signer).deploy(
         config.token.name, 
         config.token.symbol
     );
@@ -23,15 +24,55 @@ export async function deploy(thisObject: Mocha.Context, signer: SignerWithAddres
         signer.address, 
         ethers.utils.parseEther("1000000")
     );
+    await token.connect(signer).mint(
+        thisObject.user1.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(signer).mint(
+        thisObject.user2.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(signer).mint(
+        thisObject.user3.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(signer).mint(
+        thisObject.user4.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(signer).mint(
+        thisObject.user5.address, 
+        ethers.utils.parseEther("1000000")
+    );
 
     const daoFactory = await ethers.getContractFactory("DAO");
-    const dao = await daoFactory.deploy(
+    const dao: DAO = await daoFactory.deploy(
         token.address,
         config.dao.minimumQuorum,
         config.dao.debatingDuration
     )
     await dao.deployed();
+
+    await token.connect(thisObject.user1).approve(
+        dao.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(thisObject.user2).approve(
+        dao.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(thisObject.user3).approve(
+        dao.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(thisObject.user4).approve(
+        dao.address, 
+        ethers.utils.parseEther("1000000")
+    );
+    await token.connect(thisObject.user5).approve(
+        dao.address, 
+        ethers.utils.parseEther("1000000")
+    );
     
-    thisObject.token = token;
-    thisObject.dao = dao;
+    return [dao, token];
 }

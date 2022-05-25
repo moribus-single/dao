@@ -2,6 +2,7 @@
 pragma solidity 0.8.12;
 
 import "./CommonDao.sol";
+import "hardhat/console.sol";
 
 contract DAO is ICommonDAO {
     error SelectorNotAllowed();
@@ -59,7 +60,9 @@ contract DAO is ICommonDAO {
     }
 
     /**
-     * @dev Sets {_asset}, {minimumQuorum} and {debatingDuration}
+     * @dev Sets {_asset}, {minimumQuorum} and {debatingDuration},
+     * Adds 3 selectors - for setting {minimumQuorum} and {debatingDuration}
+     * and for adding new selectors
      */
     constructor(
         address asset_,
@@ -69,6 +72,16 @@ contract DAO is ICommonDAO {
         _asset = asset_;
         _minimumQuorum = minimumQuorum_ * uint128(IERC20(_asset).totalSupply()) / 100;
         _debatingDuration = debatingDuration_;
+
+        _selectors[
+            bytes4(keccak256("setMinimalQuorum(uint128)"))
+        ] = true;
+        _selectors[
+            bytes4(keccak256("setDebatingPeriod(uint128)"))
+        ] = true;
+        _selectors[
+            bytes4(keccak256("addSupportedSelector(bytes4)"))
+        ] = true;
     }
 
     /**
@@ -108,7 +121,7 @@ contract DAO is ICommonDAO {
 
     function deposit(uint128 amount) external {
         User storage user = _users[msg.sender];
-        if(user.locked){
+        if(block.timestamp < user.lockedTill){
             revert UserTokensLocked();
         }
 
@@ -118,7 +131,7 @@ contract DAO is ICommonDAO {
 
     function withdraw() external {
         User storage user = _users[msg.sender];
-        if(user.locked){
+        if(block.timestamp < user.lockedTill){
             revert UserTokensLocked();
         }
 
@@ -173,10 +186,10 @@ contract DAO is ICommonDAO {
             proposal.votesFor+= user.amount; 
         }
         else { 
-            proposal.votesAgainst++; 
+            proposal.votesAgainst+= user.amount; 
         }
-        
-        user.locked = true;
+
+        user.lockedTill = proposal.end > user.lockedTill ? proposal.end: user.lockedTill;
         user.proposalIds.push(id);
     }
 
@@ -196,7 +209,7 @@ contract DAO is ICommonDAO {
      * NOTE: Only admin can call this funciton.
      */
     function setMinimalQuorum(uint128 newQuorum) external {
-        _minimumQuorum = newQuorum * uint128(IERC20(_asset).totalSupply());
+        _minimumQuorum = newQuorum * uint128(IERC20(_asset).totalSupply()) / 100;
     }
 
     /**
@@ -205,7 +218,7 @@ contract DAO is ICommonDAO {
      * @param newPeriod New debating period you want to set.
      * NOTE: Only admin can call this funciton.
      */
-    function setDebatingPeriod(uint48 newPeriod) external {
+    function setDebatingPeriod(uint128 newPeriod) external {
         _debatingDuration = newPeriod;
     }
 
@@ -233,7 +246,6 @@ contract DAO is ICommonDAO {
             if(!_result) {
                 revert InvalidCall();
             }
-
             result = Result.ACCEPTED;
         }
 
@@ -262,7 +274,7 @@ contract DAO is ICommonDAO {
         uint8 low = 0;
         uint8 high = uint8(proposalIds.length);
 
-        while(low <= high) {
+        while(low != high) {
             uint8 middle = (high + low) / 2;
 
             if(id == proposalIds[middle]) return true;
