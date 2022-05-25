@@ -322,7 +322,7 @@ describe("DAO contract", function () {
             tx = dao.connect(this.user3).vote(4, true);
             await expect(tx).not.reverted;
 
-            tx = dao.connect(this.user4).vote(4, false);
+            tx = dao.connect(this.user4).vote(4, true);
             await expect(tx).not.reverted;
 
             tx = dao.connect(this.user5).vote(4, false);
@@ -350,6 +350,10 @@ describe("DAO contract", function () {
             await expect(tx).revertedWith("AlreadyVoted()")
 
             tx = dao.connect(this.user1).vote(4, true);
+            await expect(tx).revertedWith("AlreadyVoted()")
+
+            // try to vote for 1 proposal
+            tx = dao.connect(this.user3).vote(0, true);
             await expect(tx).revertedWith("AlreadyVoted()")
         });
 
