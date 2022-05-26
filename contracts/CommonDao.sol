@@ -32,6 +32,17 @@ interface ICommonDAO {
         uint96 lockedTill;
     }
 
+    struct DelegateInfo {
+        uint96 proposalId;
+        address delegatee;
+        uint128 amount;
+    }
+
+    struct DelegatedInfo {
+        uint128 amount;
+        bool voted;
+    }
+
     error CannotBeFinished();
 
     /**

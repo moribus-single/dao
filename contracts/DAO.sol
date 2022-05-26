@@ -3,13 +3,15 @@ pragma solidity 0.8.12;
 
 import "./CommonDao.sol";
 import "hardhat/console.sol";
-
+// TODO: the first proposal should have ID eq to 1
 contract DAO is ICommonDAO {
-    error SelectorNotAllowed();
+    error InvalidSelector();
     error InvalidCall();
     error InvalidProposalId();
     error UserTokensLocked();
-    error AlreadyVoted();
+    error InvalidVote();
+    error InvalidDelegate();
+    error InvalidUndelegate();
 
     /**
      * @dev Proposal's ID.
@@ -47,6 +49,16 @@ contract DAO is ICommonDAO {
     mapping(bytes4 => bool) private _selectors;
 
     /**
+     * @dev Delegatee by address.
+     */
+    mapping(address => DelegateInfo) private _delegatee;
+
+    /**
+     * @dev Delegated amount by delagator and proposal ID.
+     */
+    mapping(address => mapping(uint96 => DelegatedInfo)) private _delegatedAmount;
+
+    /**
      * @dev Checks if proposal is exist.
      *
      * @param id Proposal id you want to check
@@ -82,6 +94,26 @@ contract DAO is ICommonDAO {
         _selectors[
             bytes4(keccak256("addSupportedSelector(bytes4)"))
         ] = true;
+    }
+
+    function delegate(uint96 id, address delegatee, uint128 amount) external {
+        DelegateInfo storage info = _delegatee[msg.sender];
+
+        if(_users[msg.sender].amount < amount || info.proposalId != 0) {
+            revert InvalidDelegate();
+        }
+        // updateLockedTime
+        User storage user = _users[msg.sender];
+        Proposal storage proposal = _proposals[id];
+        if(user.lockedTill < proposal.end) {
+            user.lockedTill = proposal.end;
+        }
+
+        // _delegate
+        _delegatedAmount[delegatee][id].amount += amount;
+        info.proposalId = id;
+        info.delegatee = delegatee;
+        info.amount = amount;
     }
 
     /**
@@ -151,7 +183,7 @@ contract DAO is ICommonDAO {
         external
     {
         if(!_selectors[bytes4(callData)]) {
-            revert SelectorNotAllowed();
+            revert InvalidSelector();
         }
 
         Proposal storage proposal = _proposals[_proposalId];
@@ -170,7 +202,7 @@ contract DAO is ICommonDAO {
      * @dev
      */
     function vote(
-        uint128 id,
+        uint96 id,
         bool support
     ) 
         external
@@ -178,18 +210,20 @@ contract DAO is ICommonDAO {
     {
         Proposal storage proposal = _proposals[id];
         User storage user = _users[msg.sender];
+        DelegatedInfo storage info = _delegatedAmount[msg.sender][id];
 
-        if(alreadyVoted(user.proposalIds, id)){
-            revert AlreadyVoted();
+        if(alreadyVoted(user.proposalIds, id) || (_delegatee[msg.sender].proposalId == id && _delegatee[msg.sender].amount > 0)){
+            revert InvalidVote();
         }
         if(support) { 
-            proposal.votesFor+= user.amount; 
+            proposal.votesFor+= user.amount + info.amount; 
         }
         else { 
-            proposal.votesAgainst+= user.amount; 
+            proposal.votesAgainst+= user.amount + info.amount; 
         }
-
-        user.lockedTill = proposal.end > user.lockedTill ? proposal.end: user.lockedTill;
+        if(user.lockedTill < proposal.end) {
+            user.lockedTill = proposal.end;
+        }
         user.proposalIds.push(id);
     }
 
@@ -241,6 +275,8 @@ contract DAO is ICommonDAO {
         Result result = Result.DENIED;
         proposal.status = Status.FINISHED;
 
+        console.log(proposal.votesFor > proposal.votesAgainst);
+        console.log(proposal.votesFor, proposal.votesAgainst);
         if(proposal.votesFor > proposal.votesAgainst) {
             (bool _result,) = proposal.recipient.call(proposal.callData);
             if(!_result) {
@@ -271,11 +307,11 @@ contract DAO is ICommonDAO {
     }
 
     function alreadyVoted(uint128[] memory proposalIds, uint256 id) internal pure returns(bool) {
-        uint8 low = 0;
-        uint8 high = uint8(proposalIds.length);
+        uint128 low = 0;
+        uint128 high = uint128(proposalIds.length);
 
         while(low != high) {
-            uint8 middle = (high + low) / 2;
+            uint128 middle = (high + low) / 2;
 
             if(id == proposalIds[middle]) return true;
             else if(id < proposalIds[middle]) high = middle -1;

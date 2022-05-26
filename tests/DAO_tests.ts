@@ -66,7 +66,7 @@ describe("DAO contract", function () {
                 "add new selector for transfering money",
                 funcSign
             );
-            await expect(tx).revertedWith("SelectorNotAllowed()")
+            await expect(tx).revertedWith("InvalidSelector()")
         });
 
         it("Should add proposal for adding selector", async function() {
@@ -168,11 +168,10 @@ describe("DAO contract", function () {
         });
 
         it("Should revert if user trying to vote twice", async function() {
-            let tx = dao.connect(this.user1).vote(0, true);
-            await expect(tx).not.reverted;
+            await dao.connect(this.user1).vote(0, true);
 
-            tx = dao.connect(this.user1).vote(0, true);
-            await expect(tx).revertedWith("AlreadyVoted()");
+            let tx = dao.connect(this.user1).vote(0, false);
+            await expect(tx).revertedWith("InvalidVote()");
         });
 
         it("Should revert if user trying to withdraw, but he is in voting", async function() {
@@ -338,23 +337,23 @@ describe("DAO contract", function () {
 
             // try to vote twice
             tx = dao.connect(this.user5).vote(4, false);
-            await expect(tx).revertedWith("AlreadyVoted()")
+            await expect(tx).revertedWith("InvalidVote()")
 
             tx = dao.connect(this.user4).vote(4, false);
-            await expect(tx).revertedWith("AlreadyVoted()")
+            await expect(tx).revertedWith("InvalidVote()")
 
             tx = dao.connect(this.user3).vote(4, true);
-            await expect(tx).revertedWith("AlreadyVoted()")
+            await expect(tx).revertedWith("InvalidVote()")
 
             tx = dao.connect(this.user2).vote(4, true);
-            await expect(tx).revertedWith("AlreadyVoted()")
+            await expect(tx).revertedWith("InvalidVote()")
 
             tx = dao.connect(this.user1).vote(4, true);
-            await expect(tx).revertedWith("AlreadyVoted()")
+            await expect(tx).revertedWith("InvalidVote()")
 
             // try to vote for 1 proposal
             tx = dao.connect(this.user3).vote(0, true);
-            await expect(tx).revertedWith("AlreadyVoted()")
+            await expect(tx).revertedWith("InvalidVote()")
         });
 
         it("finishing proposal (debating period)", async function() {
@@ -363,6 +362,7 @@ describe("DAO contract", function () {
 
             await increase(await dao.debatingDuration());
 
+            // Minimum quorum is 4%, it is less, than user1 vote power.
             tx = dao.finishProposal(4);
             await expect(tx).emit(dao, "finishedProposal")
             .withArgs(4, Result.ACCEPTED);
@@ -370,4 +370,53 @@ describe("DAO contract", function () {
             expect(await dao.debatingDuration()).eq(60*60*24*2);
         });
     });
-})
+
+    describe("Delegating test", function() {
+        it("add some proposal", async function() {
+            const funcSign = dao.interface.encodeFunctionData(
+                "setMinimalQuorum",
+                [
+                    48
+                ]
+            )
+
+            await dao.connect(this.user2).addProposal(
+                dao.address,
+                "set minimal quorum to 48",
+                funcSign
+            );
+        });
+
+        it("Should revert if trying to delegate more than deposited", async function() {
+            let balance = await token.balanceOf(this.user1.address);
+            let tx = dao.connect(this.user1).delegate(5, this.user2.address, balance.add(100));
+            await expect(tx).revertedWith("InvalidDelegate()");
+        });
+
+        it("Should delegate balance of the user1 to user2", async function() {
+            const balance = await token.balanceOf(this.user1.address);
+            const tx = dao.connect(this.user1).delegate(5, this.user2.address, balance);
+            await expect(tx).not.reverted;
+        });
+
+        it("Should revert if user delegate twice", async function() {
+            const balance = await token.balanceOf(this.user1.address);
+            const tx = dao.connect(this.user1).delegate(0, this.user3.address, balance);
+            await expect(tx).revertedWith("InvalidDelegate()")
+        });
+
+        it("Delegating for the finishing", async function() {
+            let balance = await token.balanceOf(this.user3.address);
+            let tx = dao.connect(this.user3).delegate(5, this.user5.address, balance);
+            await expect(tx).not.reverted;
+
+            balance = await token.balanceOf(this.user4.address);
+            tx = dao.connect(this.user4).delegate(5, this.user5.address, balance);
+            await expect(tx).not.reverted;
+        });
+
+    //     it("Voting", async function() {
+
+    //     })
+    });
+});
