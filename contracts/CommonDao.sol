@@ -67,4 +67,13 @@ interface ICommonDAO {
      * @param result Result of the proposal.
      */
     event finishedProposal(uint256 indexed proposalId, Result result);
+
+    /**
+     * @dev Emits when some user delegated votes.
+     *
+     * @param delegator Address of the user, who delegate votes.
+     * @param delegatee Address of the user, which is delegated to.
+     * @param proposalId ID of the proposal, in which delegator delegates votes
+     */
+    event delegatedVotes(address indexed delegator, address indexed delegatee, uint96 indexed proposalId, uint128 amount);
 }

@@ -102,7 +102,7 @@ contract DAO is ICommonDAO {
         delegateInfo.delegatee = delegatee;
         delegateInfo.amount = user.amount;
 
-        // todo: event
+        emit delegatedVotes(msg.sender, delegatee, id, user.amount);
     }
 
     /**

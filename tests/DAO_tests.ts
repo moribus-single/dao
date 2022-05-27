@@ -416,8 +416,14 @@ describe("DAO contract", function () {
         });
 
         it("Should delegate to user2 from user1", async function () {
+            const user = await dao.connect(this.user1).user();
             const tx = dao.connect(this.user1).delegate(5, this.user2.address);
-            await expect(tx).not.reverted;
+            await expect(tx).emit(dao, Events.delegatedVotes).withArgs(
+                this.user1.address,
+                this.user2.address,
+                5,
+                user.amount
+            );
         });
 
         it("Should revert if user delegate twice", async function () {
