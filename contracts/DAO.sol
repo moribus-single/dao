@@ -5,12 +5,6 @@ import "./CommonDao.sol";
 import "hardhat/console.sol";
 
 contract DAO is ICommonDAO {
-    error SelectorNotAllowed();
-    error InvalidCall();
-    error InvalidProposalId();
-    error UserTokensLocked();
-    error AlreadyVoted();
-
     /**
      * @dev Proposal's ID.
      */
@@ -45,6 +39,16 @@ contract DAO is ICommonDAO {
      * @dev Support of the particular selector.
      */
     mapping(bytes4 => bool) private _selectors;
+
+    /**
+     * @dev Delegatee by address.
+     */
+    mapping(address => DelegateInfo) private _delegatee;
+
+    /**
+     * @dev Delegated amount by delagator and proposal ID.
+     */
+    mapping(address => mapping(uint96 => DelegatedInfo)) private _delegatedAmount;
 
     /**
      * @dev Checks if proposal is exist.
@@ -84,6 +88,22 @@ contract DAO is ICommonDAO {
         ] = true;
     }
 
+    function delegate(uint96 id, address delegatee, uint128 amount) external {
+        DelegateInfo storage delegateInfo = _delegatee[msg.sender];
+        User storage user = _users[msg.sender];
+        Proposal storage proposal = _proposals[id];
+
+        if(_users[msg.sender].amount < amount || delegateInfo.proposalId != 0) {
+            revert InvalidDelegate();
+        }
+
+        _updateLockTime(user, proposal);
+        _delegatedAmount[delegatee][id].amount += amount;
+        delegateInfo.proposalId = id;
+        delegateInfo.delegatee = delegatee;
+        delegateInfo.amount = amount;
+    }
+
     /**
      * @dev Returns the address of the voting token.
      */
@@ -119,6 +139,10 @@ contract DAO is ICommonDAO {
         return _selectors[selector];
     }
 
+    function user() external view returns(User memory) {
+        return _users[msg.sender];
+    }
+
     function deposit(uint128 amount) external {
         User storage user = _users[msg.sender];
         if(block.timestamp < user.lockedTill){
@@ -151,7 +175,7 @@ contract DAO is ICommonDAO {
         external
     {
         if(!_selectors[bytes4(callData)]) {
-            revert SelectorNotAllowed();
+            revert InvalidSelector();
         }
 
         Proposal storage proposal = _proposals[_proposalId];
@@ -170,7 +194,7 @@ contract DAO is ICommonDAO {
      * @dev
      */
     function vote(
-        uint128 id,
+        uint96 id,
         bool support
     ) 
         external
@@ -178,18 +202,18 @@ contract DAO is ICommonDAO {
     {
         Proposal storage proposal = _proposals[id];
         User storage user = _users[msg.sender];
+        DelegatedInfo storage info = _delegatedAmount[msg.sender][id];
 
-        if(alreadyVoted(user.proposalIds, id)){
-            revert AlreadyVoted();
-        }
+        _canVote(user, proposal, id);
+
         if(support) { 
-            proposal.votesFor+= user.amount; 
+            proposal.votesFor+= user.amount + info.amount; 
         }
         else { 
-            proposal.votesAgainst+= user.amount; 
+            proposal.votesAgainst+= user.amount + info.amount; 
         }
-
-        user.lockedTill = proposal.end > user.lockedTill ? proposal.end: user.lockedTill;
+        
+        _updateLockTime(user, proposal);
         user.proposalIds.push(id);
     }
 
@@ -252,6 +276,18 @@ contract DAO is ICommonDAO {
         emit finishedProposal(id, result);
     }
 
+    function _updateLockTime(User storage _user, Proposal storage _proposal) internal {
+        if(_user.lockedTill < _proposal.end) {
+            _user.lockedTill = _proposal.end;
+        }
+    }
+
+    function _canVote(User memory user, Proposal memory proposal, uint128 id) internal view {
+        if(alreadyVoted(user.proposalIds, id) || (_delegatee[msg.sender].proposalId == id && _delegatee[msg.sender].amount > 0)){
+            revert InvalidVote();
+        }
+    }
+
     function _canBeFinished(
         Proposal storage p
     ) 
@@ -271,11 +307,11 @@ contract DAO is ICommonDAO {
     }
 
     function alreadyVoted(uint128[] memory proposalIds, uint256 id) internal pure returns(bool) {
-        uint8 low = 0;
-        uint8 high = uint8(proposalIds.length);
+        uint128 low = 0;
+        uint128 high = uint128(proposalIds.length);
 
         while(low != high) {
-            uint8 middle = (high + low) / 2;
+            uint128 middle = (high + low) / 2;
 
             if(id == proposalIds[middle]) return true;
             else if(id < proposalIds[middle]) high = middle -1;
