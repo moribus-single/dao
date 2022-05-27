@@ -3,16 +3,8 @@ pragma solidity 0.8.12;
 
 import "./CommonDao.sol";
 import "hardhat/console.sol";
-// TODO: the first proposal should have ID eq to 1
-contract DAO is ICommonDAO {
-    error InvalidSelector();
-    error InvalidCall();
-    error InvalidProposalId();
-    error UserTokensLocked();
-    error InvalidVote();
-    error InvalidDelegate();
-    error InvalidUndelegate();
 
+contract DAO is ICommonDAO {
     /**
      * @dev Proposal's ID.
      */
@@ -97,23 +89,19 @@ contract DAO is ICommonDAO {
     }
 
     function delegate(uint96 id, address delegatee, uint128 amount) external {
-        DelegateInfo storage info = _delegatee[msg.sender];
-
-        if(_users[msg.sender].amount < amount || info.proposalId != 0) {
-            revert InvalidDelegate();
-        }
-        // updateLockedTime
+        DelegateInfo storage delegateInfo = _delegatee[msg.sender];
         User storage user = _users[msg.sender];
         Proposal storage proposal = _proposals[id];
-        if(user.lockedTill < proposal.end) {
-            user.lockedTill = proposal.end;
+
+        if(_users[msg.sender].amount < amount || delegateInfo.proposalId != 0) {
+            revert InvalidDelegate();
         }
 
-        // _delegate
+        _updateLockTime(user, proposal);
         _delegatedAmount[delegatee][id].amount += amount;
-        info.proposalId = id;
-        info.delegatee = delegatee;
-        info.amount = amount;
+        delegateInfo.proposalId = id;
+        delegateInfo.delegatee = delegatee;
+        delegateInfo.amount = amount;
     }
 
     /**
@@ -149,6 +137,10 @@ contract DAO is ICommonDAO {
      */
     function isSupportedSelector(bytes4 selector) external view returns(bool) {
         return _selectors[selector];
+    }
+
+    function user() external view returns(User memory) {
+        return _users[msg.sender];
     }
 
     function deposit(uint128 amount) external {
@@ -212,18 +204,16 @@ contract DAO is ICommonDAO {
         User storage user = _users[msg.sender];
         DelegatedInfo storage info = _delegatedAmount[msg.sender][id];
 
-        if(alreadyVoted(user.proposalIds, id) || (_delegatee[msg.sender].proposalId == id && _delegatee[msg.sender].amount > 0)){
-            revert InvalidVote();
-        }
+        _canVote(user, proposal, id);
+
         if(support) { 
             proposal.votesFor+= user.amount + info.amount; 
         }
         else { 
             proposal.votesAgainst+= user.amount + info.amount; 
         }
-        if(user.lockedTill < proposal.end) {
-            user.lockedTill = proposal.end;
-        }
+        
+        _updateLockTime(user, proposal);
         user.proposalIds.push(id);
     }
 
@@ -275,8 +265,6 @@ contract DAO is ICommonDAO {
         Result result = Result.DENIED;
         proposal.status = Status.FINISHED;
 
-        console.log(proposal.votesFor > proposal.votesAgainst);
-        console.log(proposal.votesFor, proposal.votesAgainst);
         if(proposal.votesFor > proposal.votesAgainst) {
             (bool _result,) = proposal.recipient.call(proposal.callData);
             if(!_result) {
@@ -286,6 +274,18 @@ contract DAO is ICommonDAO {
         }
 
         emit finishedProposal(id, result);
+    }
+
+    function _updateLockTime(User storage _user, Proposal storage _proposal) internal {
+        if(_user.lockedTill < _proposal.end) {
+            _user.lockedTill = _proposal.end;
+        }
+    }
+
+    function _canVote(User memory user, Proposal memory proposal, uint128 id) internal view {
+        if(alreadyVoted(user.proposalIds, id) || (_delegatee[msg.sender].proposalId == id && _delegatee[msg.sender].amount > 0)){
+            revert InvalidVote();
+        }
     }
 
     function _canBeFinished(

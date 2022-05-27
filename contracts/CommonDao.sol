@@ -4,6 +4,14 @@ pragma solidity 0.8.12;
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 interface ICommonDAO {
+    error InvalidSelector();
+    error InvalidCall();
+    error InvalidProposalId();
+    error UserTokensLocked();
+    error InvalidVote();
+    error InvalidDelegate();
+    error InvalidUndelegate();
+    
     enum Result {
         UNDEFINED,
         ACCEPTED,
