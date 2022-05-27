@@ -43,7 +43,7 @@ contract DAO is ICommonDAO {
     /**
      * @dev Delegatee by address.
      */
-    mapping(address => DelegateInfo) private _delegatee;
+    mapping(address => mapping(uint96 => DelegateInfo)) private _delegatee;
 
     /**
      * @dev Delegated amount by delagator and proposal ID.
@@ -88,20 +88,21 @@ contract DAO is ICommonDAO {
         ] = true;
     }
 
-    function delegate(uint96 id, address delegatee, uint128 amount) external {
-        DelegateInfo storage delegateInfo = _delegatee[msg.sender];
+    function delegate(uint96 id, address delegatee) external {
+        DelegateInfo storage delegateInfo = _delegatee[msg.sender][id];
         User storage user = _users[msg.sender];
         Proposal storage proposal = _proposals[id];
 
-        if(_users[msg.sender].amount < amount || delegateInfo.proposalId != 0) {
+        if(delegateInfo.amount > 0) {
             revert InvalidDelegate();
         }
 
         _updateLockTime(user, proposal);
-        _delegatedAmount[delegatee][id].amount += amount;
-        delegateInfo.proposalId = id;
+        _delegatedAmount[delegatee][id].amount += user.amount;
         delegateInfo.delegatee = delegatee;
-        delegateInfo.amount = amount;
+        delegateInfo.amount = user.amount;
+
+        // todo: event
     }
 
     /**
@@ -258,7 +259,7 @@ contract DAO is ICommonDAO {
     {
         Proposal storage proposal = _proposals[id];
 
-        if(!_canBeFinished(proposal)){
+        if(!_canBeFinished(proposal) || proposal.status != Status.ADDED){
             revert CannotBeFinished();
         }
 
@@ -282,8 +283,8 @@ contract DAO is ICommonDAO {
         }
     }
 
-    function _canVote(User memory user, Proposal memory proposal, uint128 id) internal view {
-        if(alreadyVoted(user.proposalIds, id) || (_delegatee[msg.sender].proposalId == id && _delegatee[msg.sender].amount > 0)){
+    function _canVote(User memory _user, Proposal memory proposal, uint96 id) internal view {
+        if(alreadyVoted(_user.proposalIds, id) || _delegatee[msg.sender][id].amount > 0 || proposal.status != Status.ADDED){
             revert InvalidVote();
         }
     }

@@ -41,7 +41,6 @@ interface ICommonDAO {
     }
 
     struct DelegateInfo {
-        uint96 proposalId;
         address delegatee;
         uint128 amount;
     }
