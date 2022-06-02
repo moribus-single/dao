@@ -3,7 +3,7 @@
 */
 
 export default {
-    addedProposal: "addedProposal",
-    finishedProposal: "finishedProposal",
-    delegatedVotes: "delegatedVotes"
+    addedProposal: "AddedProposal",
+    finishedProposal: "FinishedProposal",
+    delegatedVotes: "DelegatedVotes"
 };

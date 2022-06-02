@@ -346,10 +346,6 @@ describe("DAO contract", function () {
             tx = dao.connect(this.user5).withdraw();
             await expect(tx).revertedWith(Errors.UserTokensLocked);
 
-            // try to withdraw
-            tx = dao.connect(this.user5).deposit(100);
-            await expect(tx).revertedWith(Errors.UserTokensLocked);
-
             // try to vote twice
             tx = dao.connect(this.user5).vote(4, false);
             await expect(tx).revertedWith(Errors.InvalidVote);
