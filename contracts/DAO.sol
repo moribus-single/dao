@@ -48,7 +48,7 @@ contract DAO is ICommonDAO {
     /**
      * @dev Delegated amount by delagator and proposal ID.
      */
-    mapping(address => mapping(uint256 => DelegatedInfo)) private _delegatedAmount;
+    mapping(address => mapping(uint256 => uint256)) private _delegatedAmount;
 
     /**
      * @dev Information about voting accounts for a proposal.
@@ -132,15 +132,12 @@ contract DAO is ICommonDAO {
         if(proposal.end <= block.timestamp) {
             revert InvalidTime();
         }
-        if(_voted[delegatee][id] != VotingStatus.UNDEFINED) {
-            revert AlreadyVoted();
-        }
 
         if(user.lockedTill < proposal.end) {
             user.lockedTill = proposal.end;
         }
 
-        _delegatedAmount[delegatee][id].amount += user.amount;
+        _delegatedAmount[delegatee][id] += user.amount;
         _voted[msg.sender][id] = VotingStatus.DELEGATED;
 
         emit DelegatedVotes(msg.sender, delegatee, id, user.amount);
@@ -186,17 +183,17 @@ contract DAO is ICommonDAO {
     {
         Proposal storage proposal = _proposals[id];
         User storage user = _users[msg.sender];
-        DelegatedInfo storage info = _delegatedAmount[msg.sender][id];
+        uint256 delegatedAmount = _delegatedAmount[msg.sender][id];
 
         if(proposal.end <= block.timestamp) {
             revert InvalidTime();
         }
 
         if(support) { 
-            proposal.votesFor += user.amount + info.amount; 
+            proposal.votesFor += user.amount + delegatedAmount; 
         }
         else { 
-            proposal.votesAgainst += user.amount + info.amount; 
+            proposal.votesAgainst += user.amount + delegatedAmount; 
         }
 
         if(user.lockedTill < proposal.end) {
@@ -222,7 +219,7 @@ contract DAO is ICommonDAO {
         }
         else {
             if (proposal.votesFor + proposal.votesAgainst < _minimumQuorum) {
-                revert InvalidTime();
+                revert InvalidQuorum();
             } else {
                 bool isAccepted; 
                 bool isSuccessfulCall;

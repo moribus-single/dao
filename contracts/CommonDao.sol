@@ -41,11 +41,6 @@ interface ICommonDAO {
         uint256 lockedTill;
     }
 
-    struct DelegatedInfo {
-        uint256 amount;
-        bool voted;
-    }
-
     /**
      * @dev Emits every time proposal is added.
      *

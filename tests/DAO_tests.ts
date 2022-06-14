@@ -7,24 +7,21 @@ import { increase } from "./utils/time"
 import Errors from "./utils/errors"
 import Events from "./utils/events"
 import config from "../config"
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 
 use(waffle.solidity)
 
 describe("DAO contract", function () {
     let dao: DAO;
     let token: Token;
-
-    enum Result {
-        UNDEFINED,
-        ACCEPTED,
-        DENIED
-    };
+    let signers: SignerWithAddress[];
 
     before(async function (this) {
         await prepareSigners(this)
         let contracts = await prepare(this, this.owner)
         dao = contracts[0];
-        token = contracts[1]
+        token = contracts[1];
+        signers = await ethers.getSigners();
 
         await dao.connect(this.user1).deposit(await token.balanceOf(this.user1.address));
         await dao.connect(this.user2).deposit(await token.balanceOf(this.user2.address));
@@ -205,9 +202,6 @@ describe("DAO contract", function () {
             tx = dao.connect(this.user4).vote(0, true);
             await expect(tx).not.reverted;
 
-            tx = dao.connect(this.user5).vote(0, true);
-            await expect(tx).not.reverted;
-
 
             tx = dao.connect(this.user2).vote(1, true);
             await expect(tx).not.reverted;
@@ -265,7 +259,10 @@ describe("DAO contract", function () {
             ).slice(0, 10);
             await increase(BigNumber.from("259200"));
 
-            const tx = dao.finishProposal(0);
+            let tx = dao.connect(this.user5).vote(0, false);
+            await expect(tx).revertedWith(Errors.InvalidTime)
+
+            tx = dao.finishProposal(0);
             await expect(tx).emit(dao, Events.finishedProposal)
             .withArgs(0, true, true);
 
@@ -459,7 +456,10 @@ describe("DAO contract", function () {
         it("Finishing proposal with delegated votes. It should be accepted", async function () {
             await increase(BigNumber.from("259200"));
 
-            let tx = dao.finishProposal(5);
+            let tx = dao.delegate(5, signers[8].address);
+            await expect(tx).revertedWith(Errors.InvalidTime);
+
+            tx = dao.finishProposal(5);
             await expect(tx).emit(dao, Events.finishedProposal)
             .withArgs(5, true, true);
         });
