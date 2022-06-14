@@ -4,20 +4,26 @@ pragma solidity 0.8.12;
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 interface ICommonDAO {
+    error InvalidQuorum();
+    error InvalidTime();
     error InvalidSelector();
-    error InvalidCall();
     error InvalidProposalId();
     error UserTokensLocked();
-    error InvalidVote();
+    
+    error AlreadyVoted();
     error InvalidDelegate();
-    error InvalidUndelegate();
-    error CannotBeFinished();
     error InvalidStage();
 
-    enum Status {
+    enum ProposalStatus {
         UNDEFINED,
         ADDED,
         FINISHED
+    }
+
+    enum VotingStatus {
+        UNDEFINED,
+        VOTED,
+        DELEGATED
     }
 
     struct Proposal {
@@ -27,17 +33,12 @@ interface ICommonDAO {
         uint256 votesAgainst;
         bytes callData;
         string description;
-        Status status;
+        ProposalStatus status;
     }
 
     struct User {
         uint256 amount;
         uint256 lockedTill;
-    }
-
-    struct DelegateInfo {
-        address delegatee;
-        uint256 amount;
     }
 
     struct DelegatedInfo {
@@ -54,6 +55,15 @@ interface ICommonDAO {
     event AddedProposal(uint256 indexed proposalId, bytes callData);
 
     /**
+     * @dev Emits when some user is voted
+     *
+     * @param user Address of the user, which want to vote.
+     * @param proposalId ID of the proposal, user want to vote
+     * @param support Boolean value, represents the user opinion
+     */
+    event Voted(address indexed user, uint256 indexed proposalId, bool support);
+
+    /**
      * @dev Emits every time proposal is finished.
      *
      * @param proposalId Id of the proposal.
@@ -65,9 +75,25 @@ interface ICommonDAO {
     /**
      * @dev Emits when some user delegated votes.
      *
-     * @param delegator Address of the user, who delegate votes.
+     * @param delegator Address of the user, who delegates votes.
      * @param delegatee Address of the user, which is delegated to.
      * @param proposalId ID of the proposal, in which delegator delegates votes
      */
     event DelegatedVotes(address indexed delegator, address indexed delegatee, uint256 indexed proposalId, uint256 amount);
+
+    /**
+     * @dev Emits when some user deposits any amount of tokens.
+     *
+     * @param user Address of the user, who deposits
+     * @param amount Amount of tokens to deposit
+     */
+    event Deposited(address indexed user, uint256 amount);
+
+    /**
+     * @dev Emits when some user withdraws any amount of tokens.
+     *
+     * @param user Address of the user, who withdraws
+     * @param amount Amount of tokens to withdraw
+     */
+    event Withdrawed(address indexed user, uint256 amount);
 }
