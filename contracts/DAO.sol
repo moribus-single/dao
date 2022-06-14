@@ -130,7 +130,7 @@ contract DAO is ICommonDAO {
         Proposal storage proposal = _proposals[id];
 
         if(proposal.end <= block.timestamp) {
-            revert InvalidDelegate();
+            revert InvalidTime();
         }
         if(_voted[delegatee][id] != VotingStatus.UNDEFINED) {
             revert AlreadyVoted();
@@ -222,7 +222,7 @@ contract DAO is ICommonDAO {
         }
         else {
             if (proposal.votesFor + proposal.votesAgainst < _minimumQuorum) {
-                revert InvalidQuorum();
+                revert InvalidTime();
             } else {
                 bool isAccepted; 
                 bool isSuccessfulCall;
