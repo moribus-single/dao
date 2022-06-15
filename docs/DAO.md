@@ -158,13 +158,13 @@ function isSupportedSelector(bytes4 selector) external view returns (bool)
 
 
 
-*Returns true of selector is supported by DAO.*
+*Returns true if selector is supported by DAO.*
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| selector | bytes4 | undefined |
+| selector | bytes4 | Selector you want to check |
 
 #### Returns
 
@@ -401,17 +401,6 @@ event Withdrawed(address indexed user, uint256 amount)
 
 ```solidity
 error AlreadyVoted()
-```
-
-
-
-
-
-
-### InvalidDelegate
-
-```solidity
-error InvalidDelegate()
 ```
 
 

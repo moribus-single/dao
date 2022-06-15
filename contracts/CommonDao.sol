@@ -9,9 +9,7 @@ interface ICommonDAO {
     error InvalidSelector();
     error InvalidProposalId();
     error UserTokensLocked();
-    
     error AlreadyVoted();
-    error InvalidDelegate();
     error InvalidStage();
 
     enum ProposalStatus {

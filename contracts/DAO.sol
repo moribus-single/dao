@@ -342,7 +342,9 @@ contract DAO is ICommonDAO {
     }
 
     /**
-     * @dev Returns true of selector is supported by DAO.
+     * @dev Returns true if selector is supported by DAO.
+     *
+     * @param selector Selector you want to check
      */
     function isSupportedSelector(bytes4 selector) external view returns(bool) {
         return _selectors[selector];

@@ -132,17 +132,6 @@ error AlreadyVoted()
 
 
 
-### InvalidDelegate
-
-```solidity
-error InvalidDelegate()
-```
-
-
-
-
-
-
 ### InvalidProposalId
 
 ```solidity
