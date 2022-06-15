@@ -40,7 +40,7 @@ const config: HardhatUserConfig = {
         coinmarketcap: process.env.COINMARKETCAP_API_KEY,
         token: process.env.TOKEN,
         gasPriceApi: process.env.GAS_PRICE_API,
-        enabled: process.env.REPORT_GAS === "true",
+        enabled: true,
         maxMethodDiff: 10,
     },
     networks: {

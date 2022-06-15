@@ -4,26 +4,31 @@ pragma solidity 0.8.12;
 import "./CommonDao.sol";
 import "hardhat/console.sol";
 
+/**
+ * @title Decentralized autonomous organization
+ * @author Galas' Danil
+ * @notice This is a simple realization of DAO with delegation mechanism
+ */
 contract DAO is ICommonDAO {
-    /**
-     * @dev Proposal's ID.
-     */
-    uint96 private _proposalId;
-
     /**
      * @dev Address of the voting token.
      */
     address private _asset;
 
     /**
+     * @dev Proposal's ID.
+     */
+    uint256 private _proposalId;
+
+    /**
      * @dev Percent of the minimal allowed quorum.
      */
-    uint128 private _minimumQuorum;
+    uint256 private _minimumQuorum;
 
     /**
      * @dev Proposal's duration.
      */
-    uint128 private _debatingDuration;
+    uint256 private _debatingDuration;
 
     /**
      * @dev Proposal information by ID.
@@ -41,23 +46,47 @@ contract DAO is ICommonDAO {
     mapping(bytes4 => bool) private _selectors;
 
     /**
-     * @dev Delegatee by address.
-     */
-    mapping(address => DelegateInfo) private _delegatee;
-
-    /**
      * @dev Delegated amount by delagator and proposal ID.
      */
-    mapping(address => mapping(uint96 => DelegatedInfo)) private _delegatedAmount;
+    mapping(address => mapping(uint256 => uint256)) private _delegatedAmount;
+
+    /**
+     * @dev Information about voting accounts for a proposal.
+     */
+    mapping(address => mapping(uint256 => VotingStatus)) private _voted;
 
     /**
      * @dev Checks if proposal is exist.
-     *
      * @param id Proposal id you want to check
      */
-    modifier isValidID(uint256 id) {
+    modifier validateId(uint256 id) {
         if(_proposals[id].end == 0) {
             revert InvalidProposalId();
+        }
+
+        _;
+    }
+
+    /**
+     * @dev Check is stage is equal to provided.
+     *
+     * @param status Required stage
+     * @param id Proposal ID
+     */
+    modifier atStage(ProposalStatus status, uint256 id) {
+        if(_proposals[id].status != status) {
+            revert InvalidStage();
+        }
+
+        _;
+    }
+
+    /**
+     * @dev Provide guard from multiple voting or delegating
+     */
+    modifier isVoted(uint256 id) {
+        if(_voted[msg.sender][id] != VotingStatus.UNDEFINED) {
+            revert AlreadyVoted();
         }
 
         _;
@@ -70,98 +99,48 @@ contract DAO is ICommonDAO {
      */
     constructor(
         address asset_,
-        uint128 minimumQuorum_,
-        uint48 debatingDuration_
+        uint256 minimumQuorum_,
+        uint256 debatingDuration_
     ) {
         _asset = asset_;
-        _minimumQuorum = minimumQuorum_ * uint128(IERC20(_asset).totalSupply()) / 100;
+        _minimumQuorum = minimumQuorum_ * IERC20(_asset).totalSupply() / 100;
         _debatingDuration = debatingDuration_;
 
         _selectors[
-            bytes4(keccak256("setMinimalQuorum(uint128)"))
+            bytes4(keccak256("setMinimalQuorum(uint256)"))
         ] = true;
         _selectors[
-            bytes4(keccak256("setDebatingPeriod(uint128)"))
+            bytes4(keccak256("setDebatingPeriod(uint256)"))
         ] = true;
         _selectors[
             bytes4(keccak256("addSupportedSelector(bytes4)"))
         ] = true;
     }
 
-    function delegate(uint96 id, address delegatee, uint128 amount) external {
-        DelegateInfo storage delegateInfo = _delegatee[msg.sender];
+    /**
+     * @dev Delegate votes to `delegatee` by proposal ID.
+     */
+    function delegate(uint256 id, address delegatee)
+        external 
+        validateId(id)
+        isVoted(id)
+        atStage(ProposalStatus.ADDED, id)
+    {  
         User storage user = _users[msg.sender];
         Proposal storage proposal = _proposals[id];
 
-        if(_users[msg.sender].amount < amount || delegateInfo.proposalId != 0) {
-            revert InvalidDelegate();
+        if(proposal.end <= block.timestamp) {
+            revert InvalidTime();
         }
 
-        _updateLockTime(user, proposal);
-        _delegatedAmount[delegatee][id].amount += amount;
-        delegateInfo.proposalId = id;
-        delegateInfo.delegatee = delegatee;
-        delegateInfo.amount = amount;
-    }
-
-    /**
-     * @dev Returns the address of the voting token.
-     */
-    function asset() external view returns(address) {
-        return _asset;
-    }
-
-    /**
-     * @dev Returns minimal quorum for the proposals.
-     */
-    function minimumQuorum() external view returns(uint128) {
-        return _minimumQuorum;
-    }
-
-    /**
-     * @dev Returns debating duration for the proposals.
-     */
-    function debatingDuration() external view returns(uint128) {
-        return _debatingDuration;
-    }
-
-    /**
-     * @dev Returns the amount of the proposals.
-     */
-    function proposalId() external view returns(uint256) {
-        return _proposalId;
-    }
-
-    /**
-     * @dev Returns true of selector is supported by DAO.
-     */
-    function isSupportedSelector(bytes4 selector) external view returns(bool) {
-        return _selectors[selector];
-    }
-
-    function user() external view returns(User memory) {
-        return _users[msg.sender];
-    }
-
-    function deposit(uint128 amount) external {
-        User storage user = _users[msg.sender];
-        if(block.timestamp < user.lockedTill){
-            revert UserTokensLocked();
+        if(user.lockedTill < proposal.end) {
+            user.lockedTill = proposal.end;
         }
 
-        _deposit(msg.sender, amount);
-        user.amount += amount;
-    }
+        _delegatedAmount[delegatee][id] += user.amount;
+        _voted[msg.sender][id] = VotingStatus.DELEGATED;
 
-    function withdraw() external {
-        User storage user = _users[msg.sender];
-        if(block.timestamp < user.lockedTill){
-            revert UserTokensLocked();
-        }
-
-        uint128 amount = user.amount;
-        user.amount = 0;
-        _withdraw(msg.sender, amount);
+        emit DelegatedVotes(msg.sender, delegatee, id, user.amount);
     }
 
     /**
@@ -183,9 +162,9 @@ contract DAO is ICommonDAO {
         proposal.description = description;
         proposal.callData = callData;
         proposal.end = uint96(block.timestamp + _debatingDuration);
-        proposal.status = Status.ADDED;
+        proposal.status = ProposalStatus.ADDED;
 
-        emit addedProposal(_proposalId, callData);
+        emit AddedProposal(_proposalId, callData);
 
         _proposalId++;
     }
@@ -194,36 +173,93 @@ contract DAO is ICommonDAO {
      * @dev
      */
     function vote(
-        uint96 id,
+        uint256 id,
         bool support
     ) 
         external
-        isValidID(id) 
+        validateId(id)
+        isVoted(id)
+        atStage(ProposalStatus.ADDED, id)
     {
         Proposal storage proposal = _proposals[id];
         User storage user = _users[msg.sender];
-        DelegatedInfo storage info = _delegatedAmount[msg.sender][id];
+        uint256 delegatedAmount = _delegatedAmount[msg.sender][id];
 
-        _canVote(user, proposal, id);
+        if(proposal.end <= block.timestamp) {
+            revert InvalidTime();
+        }
 
         if(support) { 
-            proposal.votesFor+= user.amount + info.amount; 
+            proposal.votesFor += user.amount + delegatedAmount; 
         }
         else { 
-            proposal.votesAgainst+= user.amount + info.amount; 
+            proposal.votesAgainst += user.amount + delegatedAmount; 
         }
-        
-        _updateLockTime(user, proposal);
-        user.proposalIds.push(id);
+
+        if(user.lockedTill < proposal.end) {
+            user.lockedTill = proposal.end;
+        }
+
+        _voted[msg.sender][id] = VotingStatus.VOTED;
+
+        emit Voted(msg.sender, id, support);
     }
 
     function finishProposal(
         uint256 id
     )
         external
-        isValidID(id)
+        validateId(id)
+        atStage(ProposalStatus.ADDED, id) 
     {
-        _finishProposal(id);
+        Proposal storage proposal = _proposals[id];
+
+        if (block.timestamp < proposal.end) {
+            revert InvalidTime();
+        }
+        else {
+            if (proposal.votesFor + proposal.votesAgainst < _minimumQuorum) {
+                revert InvalidQuorum();
+            } else {
+                bool isAccepted; 
+                bool isSuccessfulCall;
+
+                if(proposal.votesFor > proposal.votesAgainst) {
+                    isAccepted = true;
+
+                    (bool _result,) = proposal.recipient.call(proposal.callData);
+                    if(_result) {
+                        isSuccessfulCall = true;
+                    }
+                }
+
+                proposal.status = ProposalStatus.FINISHED;
+                emit FinishedProposal(id, isAccepted, isSuccessfulCall);
+            }    
+        }
+        
+    }
+
+    function deposit(uint256 amount) external {
+        _deposit(msg.sender, amount);
+
+        User storage user = _users[msg.sender];
+        user.amount += amount;
+
+        emit Deposited(msg.sender, amount);
+    }
+
+    function withdraw() external {
+        User storage user = _users[msg.sender];
+        if(block.timestamp < user.lockedTill){
+            revert UserTokensLocked();
+        }
+
+        uint256 amount = user.amount;
+        user.amount = 0;
+        _withdraw(msg.sender, amount);
+
+        emit Withdrawed(msg.sender, amount);
     }
 
     /**
@@ -232,8 +268,8 @@ contract DAO is ICommonDAO {
      * @param newQuorum New minimal quorum you want to set.
      * NOTE: Only admin can call this funciton.
      */
-    function setMinimalQuorum(uint128 newQuorum) external {
-        _minimumQuorum = newQuorum * uint128(IERC20(_asset).totalSupply()) / 100;
+    function setMinimalQuorum(uint256 newQuorum) external {
+        _minimumQuorum = newQuorum * IERC20(_asset).totalSupply() / 100;
     }
 
     /**
@@ -242,7 +278,7 @@ contract DAO is ICommonDAO {
      * @param newPeriod New debating period you want to set.
      * NOTE: Only admin can call this funciton.
      */
-    function setDebatingPeriod(uint128 newPeriod) external {
+    function setDebatingPeriod(uint256 newPeriod) external {
         _debatingDuration = newPeriod;
     }
 
@@ -253,49 +289,43 @@ contract DAO is ICommonDAO {
         _selectors[selector] = true;
     }
 
-    function _finishProposal(uint256 id) 
-        internal 
-    {
-        Proposal storage proposal = _proposals[id];
-
-        if(!_canBeFinished(proposal)){
-            revert CannotBeFinished();
-        }
-
-        Result result = Result.DENIED;
-        proposal.status = Status.FINISHED;
-
-        if(proposal.votesFor > proposal.votesAgainst) {
-            (bool _result,) = proposal.recipient.call(proposal.callData);
-            if(!_result) {
-                revert InvalidCall();
-            }
-            result = Result.ACCEPTED;
-        }
-
-        emit finishedProposal(id, result);
+    /**
+     * @dev Returns the address of the voting token.
+     */
+    function asset() external view returns(address) {
+        return _asset;
     }
 
-    function _updateLockTime(User storage _user, Proposal storage _proposal) internal {
-        if(_user.lockedTill < _proposal.end) {
-            _user.lockedTill = _proposal.end;
-        }
+    /**
+     * @dev Returns minimal quorum for the proposals.
+     */
+    function minimumQuorum() external view returns(uint256) {
+        return _minimumQuorum;
     }
 
-    function _canVote(User memory user, Proposal memory proposal, uint128 id) internal view {
-        if(alreadyVoted(user.proposalIds, id) || (_delegatee[msg.sender].proposalId == id && _delegatee[msg.sender].amount > 0)){
-            revert InvalidVote();
-        }
+    /**
+     * @dev Returns debating duration for the proposals.
+     */
+    function debatingDuration() external view returns(uint256) {
+        return _debatingDuration;
     }
 
-    function _canBeFinished(
-        Proposal storage p
-    ) 
-        internal
-        view
-        returns(bool)
-    {
-        return (p.votesFor + p.votesAgainst >= _minimumQuorum && block.timestamp >= p.end);
+    /**
+     * @dev Returns the amount of the proposals.
+     */
+    function proposalId() external view returns(uint256) {
+        return _proposalId;
+    }
+
+    /**
+     * @dev Returns true of selector is supported by DAO.
+     */
+    function isSupportedSelector(bytes4 selector) external view returns(bool) {
+        return _selectors[selector];
+    }
+
+    function userInfo() external view returns(User memory) {
+        return _users[msg.sender];
     }
 
     function _deposit(address sender, uint256 amount) internal {
@@ -304,20 +334,5 @@ contract DAO is ICommonDAO {
 
     function _withdraw(address recipient, uint256 amount) internal {
         IERC20(_asset).transfer(recipient, amount);
-    }
-
-    function alreadyVoted(uint128[] memory proposalIds, uint256 id) internal pure returns(bool) {
-        uint128 low = 0;
-        uint128 high = uint128(proposalIds.length);
-
-        while(low != high) {
-            uint128 middle = (high + low) / 2;
-
-            if(id == proposalIds[middle]) return true;
-            else if(id < proposalIds[middle]) high = middle -1;
-            else low = middle + 1;
-        }
-
-        return false;
     }
 }

@@ -4,11 +4,12 @@
 
 export default {
     InvalidSelector: "InvalidSelector()",
-    InvalidCall: "InvalidCall()",
     InvalidProposalId: "InvalidProposalId()",
-    UserTokensLocked: "UserTokensLocked()",
     InvalidVote: "InvalidVote()",
     InvalidDelegate: "InvalidDelegate()",
-    InvalidUndelegate: "InvalidUndelegate()",
-    CannotBeFinished: "CannotBeFinished()",
+    InvalidQuorum: "InvalidQuorum()",
+    InvalidTime: "InvalidTime()",
+    InvalidStage: "InvalidStage()",
+    UserTokensLocked: "UserTokensLocked()",
+    AlreadyVoted: "AlreadyVoted()",
 };
