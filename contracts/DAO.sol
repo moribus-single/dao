@@ -2,7 +2,6 @@
 pragma solidity 0.8.12;
 
 import "./CommonDao.sol";
-import "hardhat/console.sol";
 
 /**
  * @title Decentralized autonomous organization
