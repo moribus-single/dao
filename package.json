@@ -54,5 +54,7 @@
     "typechain": "5.1.2",
     "typescript": "4.4.2"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@primitivefi/hardhat-dodoc": "^0.2.3"
+  }
 }

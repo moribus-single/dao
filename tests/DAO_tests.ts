@@ -16,6 +16,12 @@ describe("DAO contract", function () {
     let token: Token;
     let signers: SignerWithAddress[];
 
+    enum VotingStatus {
+        UNDEFINED,
+        VOTED,
+        DELEGATED
+    }
+
     before(async function (this) {
         await prepareSigners(this)
         let contracts = await prepare(this, this.owner)
@@ -195,6 +201,9 @@ describe("DAO contract", function () {
         it("Shouldn't revert when any user want to vote in first time", async function() {
             let tx = dao.connect(this.user2).vote(0, true);
             await expect(tx).not.reverted;
+
+            let votingStatus = await dao.getVotingStatus(this.user2.address, 0);
+            expect(votingStatus).eq(VotingStatus.VOTED);
 
             tx = dao.connect(this.user3).vote(0, false);
             await expect(tx).not.reverted;
@@ -449,6 +458,9 @@ describe("DAO contract", function () {
         it("Should delegate balance of the user3 and user4 to user5", async function () {
             let tx = dao.connect(this.user3).delegate(5, this.user5.address);
             await expect(tx).not.reverted;
+
+            let votingStatus = await dao.getVotingStatus(this.user3.address, 5);
+            expect(votingStatus).eq(VotingStatus.DELEGATED);
 
             tx = dao.connect(this.user4).delegate(5, this.user5.address);
             await expect(tx).not.reverted;

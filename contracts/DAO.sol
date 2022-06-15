@@ -145,6 +145,11 @@ contract DAO is ICommonDAO {
 
     /**
      * @dev Adds the proposal for the voting.
+     * NOTE: Anyone can add new proposal
+     *
+     * @param recipient Address of the contract to call the function with call data
+     * @param description Short description of the proposal
+     * @param callData Call data for calling the function with call()
      */
     function addProposal(
         address recipient,
@@ -170,7 +175,11 @@ contract DAO is ICommonDAO {
     }
 
     /**
-     * @dev
+     * @dev Votes for the particular proposal
+     * NOTE: Before voting user should deposit some tokens into DAO
+     *
+     * @param id Proposal ID you want to vote for
+     * @param support Represents your support of this proposal
      */
     function vote(
         uint256 id,
@@ -205,6 +214,11 @@ contract DAO is ICommonDAO {
         emit Voted(msg.sender, id, support);
     }
 
+    /**
+     * @dev Finishes the particular proposal
+     * @notice Proposal could be finished after duration time
+     * @notice Proposal considers successful if enough quorum is used for voting
+     */
     function finishProposal(
         uint256 id
     )
@@ -240,6 +254,11 @@ contract DAO is ICommonDAO {
         
     }
 
+    /**
+     * @dev Deposits `amount` of tokens to the DAO
+     *
+     * @param amount Amount of tokens to deposit
+     */
     function deposit(uint256 amount) external {
         _deposit(msg.sender, amount);
 
@@ -249,6 +268,12 @@ contract DAO is ICommonDAO {
         emit Deposited(msg.sender, amount);
     }
 
+    /**
+     * @dev Withdraws all the tokens from DAO
+     *
+     * @notice Tokens could be withdrawn only after the longer proposal duration user votes for
+     *  
+     */
     function withdraw() external {
         User storage user = _users[msg.sender];
         if(block.timestamp < user.lockedTill){
@@ -266,7 +291,7 @@ contract DAO is ICommonDAO {
      * @dev Sets the minimal quorum.
      *
      * @param newQuorum New minimal quorum you want to set.
-     * NOTE: Only admin can call this funciton.
+     * @notice Only admin can call this funciton.
      */
     function setMinimalQuorum(uint256 newQuorum) external {
         _minimumQuorum = newQuorum * IERC20(_asset).totalSupply() / 100;
@@ -276,7 +301,7 @@ contract DAO is ICommonDAO {
      * @dev Sets the debating period for proposals.
      *
      * @param newPeriod New debating period you want to set.
-     * NOTE: Only admin can call this funciton.
+     * @notice Only admin can call this funciton.
      */
     function setDebatingPeriod(uint256 newPeriod) external {
         _debatingDuration = newPeriod;
@@ -324,8 +349,21 @@ contract DAO is ICommonDAO {
         return _selectors[selector];
     }
 
+    /**
+     * @dev Returns information about sender
+     */
     function userInfo() external view returns(User memory) {
         return _users[msg.sender];
+    }
+
+    /**
+     * @dev Returns the voting status of the user
+     *
+     * @param user Address of the user
+     * @param id Proposal ID
+     */
+    function getVotingStatus(address user, uint256 id) external view returns(VotingStatus) {
+        return _voted[user][id];
     }
 
     function _deposit(address sender, uint256 amount) internal {

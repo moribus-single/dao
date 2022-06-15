@@ -9,6 +9,7 @@ import "@nomiclabs/hardhat-etherscan"
 import "@openzeppelin/hardhat-upgrades"
 import "solidity-coverage"
 import "hardhat-gas-reporter"
+import '@primitivefi/hardhat-dodoc';
 import "./tasks"
 
 const config: HardhatUserConfig = {
