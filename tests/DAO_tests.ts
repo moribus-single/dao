@@ -206,7 +206,7 @@ describe("DAO contract", function () {
             tx = dao.connect(this.user2).vote(1, true);
             await expect(tx).not.reverted;
 
-            tx = dao.connect(this.user3).vote(1, true);
+            tx = dao.connect(this.user3).vote(2, true);
             await expect(tx).not.reverted;
 
             tx = dao.connect(this.user4).vote(1, true);
@@ -219,7 +219,7 @@ describe("DAO contract", function () {
             tx = dao.connect(this.user2).vote(2, true);
             await expect(tx).not.reverted;
 
-            tx = dao.connect(this.user3).vote(2, true);
+            tx = dao.connect(this.user3).vote(1, true);
             await expect(tx).not.reverted;
 
             tx = dao.connect(this.user4).vote(2, true);
@@ -390,11 +390,26 @@ describe("DAO contract", function () {
     });
 
     describe("Delegating test", function() {
-        it("add some proposal", async function() {
-            const funcSign = dao.interface.encodeFunctionData(
+        it("add some proposals", async function() {
+            let funcSign = dao.interface.encodeFunctionData(
                 "setMinimalQuorum",
                 [
                     48
+                ]
+            )
+
+            await dao.connect(this.user2).addProposal(
+                dao.address,
+                "set minimal quorum to 48",
+                funcSign
+            );
+
+            await increase(BigNumber.from(30));
+
+            funcSign = dao.interface.encodeFunctionData(
+                "setMinimalQuorum",
+                [
+                    52
                 ]
             )
 
@@ -407,7 +422,17 @@ describe("DAO contract", function () {
 
         it("Should delegate to user2 from user1", async function () {
             const user = await dao.connect(this.user1).userInfo();
-            const tx = dao.connect(this.user1).delegate(5, this.user2.address);
+
+            let tx = dao.connect(this.user1).delegate(6, this.user2.address);
+            await expect(tx).emit(dao, Events.delegatedVotes).withArgs(
+                this.user1.address,
+                this.user2.address,
+                6,
+                user.amount
+            );
+
+
+            tx = dao.connect(this.user1).delegate(5, this.user2.address);
             await expect(tx).emit(dao, Events.delegatedVotes).withArgs(
                 this.user1.address,
                 this.user2.address,
@@ -462,6 +487,11 @@ describe("DAO contract", function () {
             tx = dao.finishProposal(5);
             await expect(tx).emit(dao, Events.finishedProposal)
             .withArgs(5, true, true);
+        });
+
+        it("Finishing proposal with too litle quorum. Should revert", async () => {
+            let tx = dao.finishProposal(6);
+            await expect(tx).revertedWith(Errors.InvalidQuorum);
         });
     });
 });
